@@ -19,6 +19,8 @@ Every value the checks use comes from [doc-trace](https://github.com/joelliewwei
 
 ## Run it
 
+Needs Node.js 22 or later.
+
 ```sh
 npm install
 npm start          # http://localhost:3000
