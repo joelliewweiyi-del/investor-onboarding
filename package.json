@@ -1,0 +1,16 @@
+{
+  "name": "investor-onboarding",
+  "version": "0.1.0",
+  "description": "Investor onboarding for a real estate fund: invite, form and documents, automatic checks with traced evidence, a reviewer queue for what fails.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "doc-trace": "file:../doc-trace",
+    "pdf-lib": "^1.17.1"
+  }
+}

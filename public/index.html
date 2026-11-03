@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>investor-onboarding</title>
+<style>
+  :root { --bg:#f7f7f5; --card:#fff; --ink:#1c1c1a; --muted:#6b6b66; --line:#e4e4df;
+          --ok:#1f7a4d; --ok-bg:#e3f4ea; --bad:#b42318; --bad-bg:#fde8e6; --warn:#8a5a00; --warn-bg:#fdf1d8; }
+  * { box-sizing:border-box }
+  body { margin:0; font:14px/1.5 system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--ink) }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:14px 20px; border-bottom:1px solid var(--line); background:var(--card) }
+  header h1 { font-size:16px; margin:0 }
+  header .sub { color:var(--muted) }
+  main { max-width:1100px; margin:0 auto; padding:16px 20px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:16px }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 10px }
+  button { font:inherit; border:1px solid var(--line); background:var(--card); padding:6px 12px; border-radius:6px; cursor:pointer }
+  button.primary { background:var(--ink); color:#fff; border-color:var(--ink) }
+  button.danger { color:var(--bad); border-color:var(--bad) }
+  input, textarea { font:inherit; border:1px solid var(--line); border-radius:6px; padding:6px 8px; width:100% }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+  .row > input { flex:1 1 180px; width:auto }
+  .stats { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px; margin-bottom:16px }
+  @media (max-width:700px) { .stats { grid-template-columns:repeat(2, minmax(0,1fr)) } }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px }
+  .stat b { display:block; font-size:22px }
+  .stat span { color:var(--muted); font-size:12px }
+  table { width:100%; border-collapse:collapse }
+  th { text-align:left; font-size:12px; color:var(--muted); font-weight:500; padding:6px }
+  td { padding:9px 6px; border-top:1px solid var(--line); vertical-align:top }
+  tr.link { cursor:pointer } tr.link:hover { background:#fafaf7 }
+  .pill { display:inline-block; font-size:11px; font-weight:600; padding:1px 8px; border-radius:99px; white-space:nowrap }
+  .approved { background:var(--ok-bg); color:var(--ok) }
+  .rejected { background:var(--bad-bg); color:var(--bad) }
+  .review { background:var(--warn-bg); color:var(--warn) }
+  .invited { background:#eee; color:var(--muted) }
+  .muted { color:var(--muted) }
+  .check { display:grid; grid-template-columns:22px minmax(0,1fr); gap:4px 6px; padding:8px 0; border-top:1px solid var(--line) }
+  .check .mark { font-weight:700 } .check.ok .mark { color:var(--ok) } .check.fail .mark { color:var(--bad) }
+  .check.fail .detail { color:var(--bad) }
+  .quote { grid-column:2; font:12px/1.5 ui-monospace, Menlo, monospace; color:var(--muted); background:#f3f3ef; border-radius:4px; padding:2px 6px; overflow-wrap:anywhere }
+  .grid2 { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:16px }
+  @media (max-width:800px) { .grid2 { grid-template-columns:1fr } }
+  .field { margin-bottom:10px } .field label { display:block; font-size:12px; color:var(--muted); margin-bottom:2px }
+  .link-box { margin-top:8px; font:12px ui-monospace, Menlo, monospace; overflow-wrap:anywhere }
+  a { color:inherit }
+</style>
+</head>
+<body>
+<header><h1 id="title">Investor onboarding</h1><span class="sub" id="sub"></span></header>
+<main id="app"></main>
+<script>
+const $app = document.getElementById('app');
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const api = async (path, body) => {
+  const res = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error);
+  return data;
+};
+const money = (n) => n == null ? '—' : 'GBP ' + Number(n).toLocaleString('en-GB');
+const LABEL = { invited: 'invited', review: 'in review', approved: 'approved', rejected: 'rejected' };
+const pill = (s) => `<span class="pill ${s}">${LABEL[s]}</span>`;
+let fund;
+
+async function dashboard() {
+  document.getElementById('sub').textContent = `${fund.name} · reviewer view`;
+  const list = await api('/api/investors');
+  const count = (s) => list.filter((i) => i.status === s).length;
+  $app.innerHTML = `
+    <div class="stats">
+      ${['invited', 'review', 'approved', 'rejected'].map((s) => `<div class="stat"><b>${count(s)}</b><span>${LABEL[s]}</span></div>`).join('')}
+    </div>
+    <div class="card"><h2>Investors</h2>
+      <table><tr><th>Investor</th><th>Commitment</th><th>Checks</th><th>Status</th></tr>
+      ${list.map((i) => `<tr class="link" data-id="${i.id}">
+        <td><b>${esc(i.name)}</b><div class="muted">${esc(i.email)}</div></td>
+        <td>${money(i.commitment)}</td>
+        <td>${i.total ? `${i.total - i.failed}/${i.total} passed` : '<span class="muted">waiting for the investor</span>'}</td>
+        <td>${pill(i.status)}</td></tr>`).join('')}
+      </table>
+    </div>
+    <div class="card"><h2>Invite an investor</h2>
+      <form id="invite" class="row"><input name="name" placeholder="Full name" required><input name="email" type="email" placeholder="Email" required><button class="primary">Send invite</button></form>
+      <div id="inviteResult"></div>
+    </div>`;
+  $app.querySelectorAll('tr.link').forEach((tr) => tr.onclick = () => location.hash = `#/investor/${tr.dataset.id}`);
+  document.getElementById('invite').onsubmit = async (e) => {
+    e.preventDefault();
+    const { link } = await api('/api/invites', Object.fromEntries(new FormData(e.target)));
+    document.getElementById('inviteResult').innerHTML = `<div class="link-box">Invite link: <a href="${link}">${location.origin}${link}</a></div>`;
+  };
+}
+
+async function investor(id) {
+  const inv = await api(`/api/investors/${id}`);
+  document.getElementById('sub').textContent = `${fund.name} · reviewer view`;
+  const groups = fund.requiredDocs.map(({ slot, label }) => {
+    const checks = inv.checks.filter((c) => c.slot === slot);
+    const doc = inv.docs[slot];
+    return `<div class="card"><h2>${esc(label)}${doc ? ` <span class="muted">· read by ${esc(doc.extractor)}</span>` : ''}</h2>
+      ${checks.map((c) => `<div class="check ${c.ok ? 'ok' : 'fail'}"><span class="mark">${c.ok ? '✓' : '✗'}</span>
+        <div><b>${esc(c.name)}</b> <span class="detail">${esc(c.detail)}</span></div>
+        ${c.evidence.map((e) => `<div class="quote">p.${e.page} “${esc(e.quote)}”</div>`).join('')}</div>`).join('')}
+    </div>`;
+  }).join('');
+  const decisionBox = inv.status === 'review' ? `
+    <div class="card"><h2>Decision</h2>
+      <p class="muted">${inv.failed} of ${inv.total} checks failed. Approve if the evidence is acceptable, or reject with a note for the investor.</p>
+      <textarea id="note" rows="3" placeholder="Note (required to reject)"></textarea>
+      <div class="row" style="margin-top:8px"><button class="primary" data-d="approved">Approve</button><button class="danger" data-d="rejected">Reject</button></div>
+      <p id="err" class="detail" style="color:var(--bad)"></p>
+    </div>` : inv.decision ? `<div class="card"><h2>Decision</h2>${pill(inv.status)} by ${esc(inv.decision.by)}${inv.decision.note ? `: ${esc(inv.decision.note)}` : ''}</div>` : '';
+  $app.innerHTML = `
+    <p><a href="#/">← All investors</a></p>
+    <div class="card"><div class="row" style="justify-content:space-between">
+      <div><b style="font-size:18px">${esc(inv.name)}</b> ${pill(inv.status)}<div class="muted">${esc(inv.email)}${inv.form ? ` · ${esc(inv.form.address)} · ${money(inv.form.commitment)}` : ''}</div></div>
+      <div class="muted">${inv.total ? `${inv.total - inv.failed}/${inv.total} checks passed` : 'not submitted yet'}</div></div></div>
+    ${inv.link ? `<div class="card"><h2>Waiting for the investor</h2><div class="link-box">Invite link: <a id="inviteLink" href="${inv.link}">${location.origin}${inv.link}</a></div></div>` : ''}
+    <div class="grid2"><div>${inv.total ? groups : ''}</div>
+      <div>${decisionBox}<div class="card"><h2>Timeline</h2>${inv.timeline.map((t) => `<div class="check"><span class="muted">·</span><div>${esc(t.text)}<div class="muted">${new Date(t.at).toLocaleString('en-GB')}</div></div></div>`).join('')}</div></div>
+    </div>`;
+  $app.querySelectorAll('[data-d]').forEach((b) => b.onclick = async () => {
+    try { await api(`/api/investors/${id}/decision`, { decision: b.dataset.d, note: document.getElementById('note').value, by: 'Reviewer' }); investor(id); }
+    catch (e) { document.getElementById('err').textContent = e.message; }
+  });
+}
+
+async function form(token) {
+  const invite = await api(`/api/form/${token}`);
+  document.getElementById('sub').textContent = `${invite.fund} · investor view`;
+  if (invite.status !== 'invited') { $app.innerHTML = `<div class="card">This invite has been used. Status: ${pill(invite.status)}</div>`; return; }
+  const files = {};
+  $app.innerHTML = `
+    <div class="card" style="max-width:640px"><h2>Welcome, ${esc(invite.name)}</h2>
+      <p class="muted">Fill in your details and upload three documents. Most applications are approved within a minute.</p>
+      <form id="f">
+        <div class="field"><label>Full name</label><input name="name" value="${esc(invite.name)}" required></div>
+        <div class="field"><label>Email</label><input name="email" value="${esc(invite.email)}" required></div>
+        <div class="field"><label>Home address</label><input name="address" required></div>
+        <div class="field"><label>Commitment (GBP)</label><input name="commitment" type="number" min="0" required></div>
+        ${fund.requiredDocs.map((d) => `<div class="field"><label>${esc(d.label)} (PDF)</label><input type="file" accept="application/pdf" data-slot="${d.slot}"><div class="muted" id="file-${d.slot}"></div></div>`).join('')}
+        <div class="row"><button class="primary">Submit</button><button type="button" id="sample">Use sample documents</button></div>
+        <p id="err" style="color:var(--bad)"></p>
+      </form>
+    </div>`;
+  const f = document.getElementById('f');
+  $app.querySelectorAll('input[type=file]').forEach((input) => input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    files[input.dataset.slot] = btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(''));
+  });
+  document.getElementById('sample').onclick = async () => {
+    const s = await api(`/api/form/${token}/sample`);
+    for (const [k, v] of Object.entries(s.form)) f.elements[k].value = v;
+    Object.assign(files, s.files);
+    fund.requiredDocs.forEach((d) => document.getElementById(`file-${d.slot}`).textContent = `sample-${d.slot}.pdf attached`);
+  };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const { status } = await api(`/api/form/${token}`, { form: Object.fromEntries(new FormData(f)), files });
+      $app.innerHTML = `<div class="card" style="max-width:640px"><h2>Thank you</h2>
+        <p>${status === 'approved' ? 'All checks passed. You are approved.' : 'We need to look at one or more documents. A reviewer will get back to you.'}</p>
+        <p>${pill(status)}</p><p><a href="#/">Open the reviewer view →</a></p></div>`;
+    } catch (err) { document.getElementById('err').textContent = err.message; }
+  };
+}
+
+async function route() {
+  fund ??= await api('/api/fund');
+  const [, page, arg] = location.hash.split('/');
+  if (page === 'investor') return investor(arg);
+  if (page === 'form') return form(arg);
+  return dashboard();
+}
+addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
