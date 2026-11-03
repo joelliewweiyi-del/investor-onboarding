@@ -41,3 +41,34 @@ test('an invite can be used once', async () => {
   await s.submit(inv.token, person, docs);
   await assert.rejects(s.submit(inv.token, person, docs), /already submitted/);
 });
+
+test('a submission that fails to read leaves the invite untouched, so the investor can try again', async () => {
+  const s = store();
+  const inv = s.invite(person);
+  const docs = await makeDocs(person, NOW);
+  await assert.rejects(s.submit(inv.token, person, { ...docs, address: Buffer.from('not a pdf') }));
+  assert.equal(inv.status, 'invited');
+  assert.equal(inv.form, null);
+  assert.deepEqual(inv.docs, {});
+  await s.submit(inv.token, person, docs);
+  assert.equal(inv.status, 'approved');
+});
+
+test('two submissions racing on one invite: only one is processed', async () => {
+  const s = store();
+  const inv = s.invite(person);
+  const docs = await makeDocs(person, NOW);
+  const results = await Promise.allSettled([s.submit(inv.token, person, docs), s.submit(inv.token, person, docs)]);
+  assert.deepEqual(results.map((r) => r.status).sort(), ['fulfilled', 'rejected']);
+  assert.equal(inv.timeline.filter((t) => t.text.startsWith('Submitted')).length, 1);
+});
+
+test('a submission without the form fields is refused with a clear message, and changes nothing', async () => {
+  const s = store();
+  const inv = s.invite(person);
+  const docs = await makeDocs(person, NOW);
+  for (const form of [undefined, {}, { ...person, address: ' ' }, { ...person, commitment: 'abc' }, { ...person, commitment: -5 }])
+    await assert.rejects(s.submit(inv.token, form, docs), /form needs a name, an address and a positive commitment/);
+  await assert.rejects(s.submit(inv.token, person, null), /files/);
+  assert.equal(inv.status, 'invited');
+});

@@ -21,13 +21,24 @@ export function createStore({ now = () => new Date(), extractor = 'auto', env = 
   async function submit(token, form, files) {
     const inv = [...investors.values()].find((i) => i.token === token);
     if (!inv) throw new Error('unknown invite');
-    if (inv.status !== 'invited') throw new Error('already submitted');
-    inv.form = { name: form.name, email: form.email, address: form.address, commitment: Number(form.commitment) };
-    inv.docs = {};
-    for (const [slot, bytes] of Object.entries(files)) {
-      const { pages, ...result } = await processPdf(bytes, { schemas: SCHEMAS_ONBOARDING, extractor, env });
-      inv.docs[slot] = { ...result, pages };
+    if (inv.status !== 'invited' || inv.submitting) throw new Error('already submitted');
+    const ok = (v) => typeof v === 'string' && v.trim() !== '';
+    if (!form || !ok(form.name) || !ok(form.address) || !(Number(form.commitment) > 0))
+      throw new Error('the form needs a name, an address and a positive commitment');
+    if (!files || typeof files !== 'object') throw new Error('files must be an object of documents by slot');
+    // Read everything first; the case changes only when every document was read.
+    inv.submitting = true;
+    let docs;
+    try {
+      docs = {};
+      for (const [slot, bytes] of Object.entries(files)) {
+        docs[slot] = await processPdf(bytes, { schemas: SCHEMAS_ONBOARDING, extractor, env });
+      }
+    } finally {
+      inv.submitting = false;
     }
+    inv.form = { name: form.name, email: form.email, address: form.address, commitment: Number(form.commitment) };
+    inv.docs = docs;
     inv.checks = runChecks(inv.form, inv.docs, now());
     const failed = inv.checks.filter((c) => !c.ok);
     log(inv, `Submitted form and ${Object.keys(files).length} documents`);

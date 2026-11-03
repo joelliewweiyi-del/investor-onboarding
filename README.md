@@ -1,5 +1,7 @@
 # investor-onboarding
 
+[![test](https://github.com/joelliewweiyi-del/investor-onboarding/actions/workflows/test.yml/badge.svg)](https://github.com/joelliewweiyi-del/investor-onboarding/actions/workflows/test.yml)
+
 Onboard investors into a real estate fund. The investor fills in a form and uploads three documents. Automatic checks approve clean applications. Anything that fails goes to a reviewer, with the exact quote behind each check.
 
 ![investor-onboarding demo](docs/demo.gif)
