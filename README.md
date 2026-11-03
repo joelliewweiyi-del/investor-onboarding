@@ -70,11 +70,30 @@ npm test
 
 Each failure path has a test: an expired passport, an old or mismatched address, an unsigned agreement, a commitment under the minimum or different from the form, a document for someone else, a missing document and a document in the wrong slot.
 
+## Design decisions
+
+| Decision | Alternative I rejected | Why |
+|---|---|---|
+| The model only reads; plain rules decide | Let a model judge the application | A fund has to explain every rejection and every approval. A rule with a quote is explainable. A model's judgement isn't. |
+| Fail closed | Skip a check when a field is unreadable | An unreadable passport should never pass because nothing contradicted it. |
+| Clean cases are approved automatically | A person signs off on every case | Most applications are clean. The reviewer's time goes to the cases that failed a check, with the evidence already laid out. |
+| A rejection needs a note | A one-click reject | The investor needs to know what to fix, and the audit trail needs to know why. |
+| The fund's rules live in one file (`src/fund.js`) | Rules spread through the code | The minimum commitment or the 90-day limit differs per fund. Changing it should be one line, with tests that catch the edge. |
+| A submission is all or nothing | Save each document as it is read | A half-read application is worse than none. If one file fails, the invite stays open and the investor can retry. |
+
 ## Limits
 
 - State is in memory. Restarting resets the demo.
 - No real identity verification (liveness, sanctions or PEP screening). Those need a provider.
 - Every name, address and number here is made up.
+
+## What's next
+
+- **Corporate investors.** Company register extract, ultimate beneficial owners, and the same checks per owner.
+- **Screening.** Sanctions and PEP checks through a provider, as one more check with its own evidence.
+- **Persistence and audit log.** Postgres instead of memory, with every decision and every document version kept.
+- **Expiry watch.** A passport that expires during the fund's life triggers a request for a new one.
+- **E-signature.** The subscription agreement is signed inside the flow instead of uploaded.
 
 ## License
 
