@@ -62,6 +62,8 @@ XAI_API_KEY=... npm start
 
 See the [doc-trace README](https://github.com/joelliewweiyi-del/doc-trace#use-an-llm) for other providers.
 
+On 3 Nov 2026 Grok 4.7 (through OpenRouter) read the three submitted demo investors. Every check came out the same as with the offline extractor: Daniel approved, Priya and Tomasz to review. On Tomasz's unsigned form it reported the signature as missing instead of inventing one.
+
 ## Tests
 
 ```sh
